@@ -118,8 +118,20 @@ plugins: [
 ]
 ```
 
-Or skip local hosting entirely and point at any static host (GitHub Pages,
-Cloudflare Pages, S3). It's static files — there is no API server anywhere.
+Or skip local hosting entirely — the data ships inside the npm package, so
+jsDelivr can serve it directly, pinned to your installed version:
+
+```ts
+configureLoader(fetchLoader('https://cdn.jsdelivr.net/npm/nihonpost@0.1.0/data'))
+```
+
+Any static host works too (GitHub Pages, Cloudflare Pages, S3). It's static
+files — there is no API server anywhere.
+
+> **Bundle size note:** none of this data ever enters your JS bundle. The
+> browser fetches only the chunks a lookup touches — a few KB each, cached
+> after the first hit. The full ~11 MB exists only in `node_modules` (and
+> travels as a 1.9 MB tarball).
 
 Custom sources implement one function:
 

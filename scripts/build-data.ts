@@ -179,7 +179,7 @@ function main() {
   let totalBytes = 0
   for (const [prefix, chunk] of chunks) {
     const json = JSON.stringify(chunk)
-    totalBytes += json.length
+    totalBytes += Buffer.byteLength(json) // UTF-8 bytes, not chars — kanji is 3 bytes
     writeFileSync(resolve(OUT_DIR, `${prefix}.json`), json)
   }
 
