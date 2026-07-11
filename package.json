@@ -1,0 +1,72 @@
+{
+  "name": "nihonpost",
+  "version": "0.1.0",
+  "description": "🗾 Offline Japanese postal code → address lookup for Vue 3. TypeScript-first, zero runtime API calls, self-updating data.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.js",
+      "require": "./dist/vue.cjs"
+    },
+    "./data/*": "./data/*"
+  },
+  "files": [
+    "dist",
+    "data"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:data": "node --experimental-strip-types scripts/build-data.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "japan",
+    "postal-code",
+    "zipcode",
+    "yubinbango",
+    "郵便番号",
+    "住所",
+    "address",
+    "vue",
+    "vue3",
+    "composable",
+    "offline",
+    "typescript"
+  ],
+  "author": "Thiyagu Arunachalam (https://thiyaguarunachalam.com)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Thiya11/nihonpost.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "vue": "^3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "vue": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.10",
+    "vue": "^3.4.0"
+  }
+}

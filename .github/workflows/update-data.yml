@@ -1,0 +1,53 @@
+name: Monthly data update
+
+on:
+  schedule:
+    # Japan Post refreshes KEN_ALL near the end of each month;
+    # run on the 1st, 03:00 JST (18:00 UTC prev day)
+    - cron: '0 18 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write # npm provenance
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Rebuild postal data from Japan Post
+        run: |
+          npm ci
+          npm run build:data
+
+      - name: Detect changes
+        id: diff
+        run: |
+          # Stage so brand-new chunk files (untracked) are detected too
+          git add -A data/
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit, tag, and publish patch release
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          git config user.name "nihonpost-bot"
+          git config user.email "actions@github.com"
+          # Commit the data first: npm version refuses to run on a dirty tree
+          git commit -m "data: monthly Japan Post refresh"
+          npm version patch -m "chore: release %s"
+          npm run build
+          npm publish
+          git push --follow-tags
