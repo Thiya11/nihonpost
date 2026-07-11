@@ -33,6 +33,9 @@ export type Chunk = Record<string, PackedAddress[]>
 export type ChunkLoader = (prefix: string) => Promise<Chunk | null>
 
 export interface LookupOptions {
-  /** Custom loader (e.g. fetch from your own CDN). Defaults to bundled data. */
+  /**
+   * Custom loader for this call. Defaults to the loader set via
+   * configureLoader(), falling back to the version-pinned jsDelivr CDN.
+   */
   loader?: ChunkLoader
 }

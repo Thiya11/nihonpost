@@ -1,5 +1,5 @@
 // Framework-agnostic core — usable from any JS/TS project
-export { lookup, lookupAll, configureLoader, fetchLoader } from './core/lookup'
+export { lookup, lookupAll, configureLoader, fetchLoader, cdnLoader } from './core/lookup'
 export {
   normalizePostalCode,
   isCompletePostalCode,

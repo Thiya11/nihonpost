@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -7,7 +7,7 @@ import {
   isCompletePostalCode,
   normalizePostalCode,
 } from '../src/core/normalize'
-import { __clearCache, configureLoader, lookup, lookupAll } from '../src/core/lookup'
+import { __clearCache, cdnLoader, configureLoader, lookup, lookupAll } from '../src/core/lookup'
 import { usePostalCode } from '../src/vue/usePostalCode'
 import type { Chunk } from '../src/core/types'
 
@@ -230,6 +230,62 @@ describe('lookup (loader edge cases)', () => {
   it('preserves leading zeros end to end', async () => {
     const addr = await lookup('０６０-００００') // full-width Sapporo code
     expect(addr?.prefecture).toBe('北海道')
+  })
+})
+
+describe('cdnLoader / zero-config default', () => {
+  const pkgVersion = JSON.parse(
+    readFileSync(resolve(__dirname, '../package.json'), 'utf8'),
+  ).version as string
+
+  const stubFetch = (chunk: Chunk | null) => {
+    const mock = vi.fn(async (_url: string) =>
+      chunk
+        ? { ok: true, status: 200, json: async () => chunk }
+        : { ok: false, status: 404, json: async () => null },
+    )
+    vi.stubGlobal('fetch', mock)
+    return mock
+  }
+
+  it('cdnLoader pins jsDelivr to the installed package version', async () => {
+    const chunk = JSON.parse(readFileSync(resolve(__dirname, 'fixtures/150.json'), 'utf8'))
+    const fetchMock = stubFetch(chunk)
+    configureLoader(cdnLoader())
+    const addr = await lookup('1500002')
+    expect(addr?.city).toBe('渋谷区')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      `https://cdn.jsdelivr.net/npm/nihonpost@${pkgVersion}/data/150.json`,
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('unconfigured lookups fall back to the CDN with a one-time notice', async () => {
+    __clearCache() // wipes the loader configured in beforeEach
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const chunk = JSON.parse(readFileSync(resolve(__dirname, 'fixtures/150.json'), 'utf8'))
+    const fetchMock = stubFetch(chunk)
+
+    const addr = await lookup('1500002') // no configureLoader call anywhere
+    expect(addr?.city).toBe('渋谷区')
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('cdn.jsdelivr.net/npm/nihonpost@')
+
+    await lookup('0600000') // different chunk — notice must not repeat
+    expect(info).toHaveBeenCalledTimes(1)
+    expect(info.mock.calls[0]?.[0]).toContain('configureLoader')
+
+    info.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('configureLoader silences the CDN fallback entirely', async () => {
+    __clearCache()
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    configureLoader(fixtureLoader)
+    await lookup('1500002')
+    expect(info).not.toHaveBeenCalled()
+    info.mockRestore()
   })
 })
 

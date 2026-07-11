@@ -2,26 +2,53 @@ import type { Chunk, ChunkLoader, JpAddress, LookupOptions, PackedAddress } from
 import { normalizePostalCode } from './normalize'
 import { PREFECTURES } from './prefectures'
 
+// Injected by the bundler (tsup/vitest `define`); guarded so that consuming
+// the source directly without a define still works.
+declare const __NIHONPOST_VERSION__: string | undefined
+
+const VERSION =
+  typeof __NIHONPOST_VERSION__ !== 'undefined' ? __NIHONPOST_VERSION__ : 'latest'
+
 const chunkCache = new Map<string, Chunk | null>()
 const inflight = new Map<string, Promise<Chunk | null>>()
 // Bumped whenever caches are cleared, so loads already in flight
 // cannot write stale results into the fresh cache when they settle.
 let generation = 0
 
-let defaultLoader: ChunkLoader = async () => {
-  throw new Error(
-    '[nihonpost] No data loader configured. ' +
-      'Call configureLoader() with fetchLoader(baseUrl) or a custom loader. ' +
-      'See https://github.com/Thiya11/nihonpost#data-loading',
-  )
-}
+let configuredLoader: ChunkLoader | null = null
+let cdnNoticeShown = false
 
 /** Set the global default chunk loader (call once at app startup). */
 export function configureLoader(loader: ChunkLoader): void {
-  defaultLoader = loader
+  configuredLoader = loader
   generation++
   chunkCache.clear()
   inflight.clear()
+}
+
+/**
+ * Loader that serves chunks from the jsDelivr CDN, pinned to the installed
+ * package version — upgrading nihonpost automatically moves the pin.
+ *
+ *   configureLoader(cdnLoader())
+ */
+export function cdnLoader(): ChunkLoader {
+  return fetchLoader(`https://cdn.jsdelivr.net/npm/nihonpost@${VERSION}/data`)
+}
+
+// Zero-config default: fall back to the CDN, telling the developer once.
+function defaultLoader(): ChunkLoader {
+  if (configuredLoader) return configuredLoader
+  if (!cdnNoticeShown) {
+    cdnNoticeShown = true
+    console.info(
+      `[nihonpost] No loader configured — fetching data from jsDelivr ` +
+        `(nihonpost@${VERSION}). To self-host or work offline, call ` +
+        `configureLoader(). See https://github.com/Thiya11/nihonpost#data-loading`,
+    )
+  }
+  configuredLoader = cdnLoader()
+  return configuredLoader
 }
 
 /**
@@ -91,7 +118,7 @@ export async function lookupAll(
   const code = normalizePostalCode(raw)
   if (!code) return null
 
-  const loader = options.loader ?? defaultLoader
+  const loader = options.loader ?? defaultLoader()
   const chunk = await loadChunk(code.slice(0, 3), loader)
   const hits = chunk?.[code]
   return hits ? hits.map(unpack) : []
@@ -106,9 +133,11 @@ export async function lookup(
   return all?.[0] ?? null
 }
 
-/** Test hook — resets caches between test cases. */
+/** Test hook — resets caches and loader configuration between test cases. */
 export function __clearCache(): void {
   generation++
   chunkCache.clear()
   inflight.clear()
+  configuredLoader = null
+  cdnNoticeShown = false
 }

@@ -1,7 +1,7 @@
 # 🗾 nihonpost
 
-**Offline Japanese postal code → address lookup for Vue 3.**
-TypeScript-first · zero runtime API calls · self-updating data · handles 〒 and full-width input
+**Japanese postal code → address lookup for Vue 3.**
+TypeScript-first · works out of the box · fully self-hostable (offline, zero third-party calls) · self-updating data · handles 〒 and full-width input
 
 ```
 〒１５０-０００２  →  { prefecture: "東京都", city: "渋谷区", town: "渋谷" }
@@ -13,7 +13,8 @@ Every Japanese web form needs 郵便番号 → 住所 autofill. Your options tod
 
 | | API-based (zipcloud etc.) | yubinbango-core2 | **nihonpost** |
 |---|---|---|---|
-| Works offline / no third-party dependency | ❌ | ✅ | ✅ |
+| Works offline / no third-party dependency | ❌ | ✅ | ✅ when self-hosted |
+| Zero-config first run (CDN fallback) | — | ❌ | ✅ |
 | TypeScript types | ❌ | ❌ | ✅ |
 | Vue 3 composable | ❌ | ❌ | ✅ |
 | Promise-based | ❌ | ❌ (callbacks) | ✅ |
@@ -96,8 +97,20 @@ formatPostalCode('１５００００２') // "150-0002"
 The dataset (~124k codes) is chunked by the first 3 digits into ~900 small
 JSON files — your app loads only the chunks it touches, a few KB each.
 
-Copy `node_modules/nihonpost/data` into your static assets and point the
-loader at it once, at app startup:
+**Zero config:** it works out of the box. With no setup, lookups fetch
+chunks from the jsDelivr CDN, pinned to your installed nihonpost version
+(a one-time `console.info` reminds you this is happening). Upgrading the
+package automatically moves the pin — nothing goes stale.
+
+```ts
+// Equivalent explicit form, if you prefer no console notice:
+import { configureLoader, cdnLoader } from 'nihonpost'
+configureLoader(cdnLoader())
+```
+
+**Self-hosting** (offline, intranet, CSP, privacy policies): copy
+`node_modules/nihonpost/data` into your static assets and point the loader
+at it once, at app startup:
 
 ```ts
 import { configureLoader, fetchLoader } from 'nihonpost'
@@ -116,13 +129,6 @@ plugins: [
     targets: [{ src: 'node_modules/nihonpost/data/*', dest: 'nihonpost-data' }],
   }),
 ]
-```
-
-Or skip local hosting entirely — the data ships inside the npm package, so
-jsDelivr can serve it directly, pinned to your installed version:
-
-```ts
-configureLoader(fetchLoader('https://cdn.jsdelivr.net/npm/nihonpost@0.1.0/data'))
 ```
 
 Any static host works too (GitHub Pages, Cloudflare Pages, S3). It's static
