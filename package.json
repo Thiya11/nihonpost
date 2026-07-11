@@ -1,6 +1,6 @@
 {
   "name": "nihonpost",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "🗾 Japanese postal code → address lookup for Vue 3. TypeScript-first, zero-config via CDN or fully self-hosted/offline, self-updating data.",
   "type": "module",
   "main": "./dist/index.cjs",
