@@ -9,7 +9,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write # npm provenance
+  actions: write # to dispatch the Release workflow
 
 jobs:
   update:
@@ -19,8 +19,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+          node-version: 24
 
       - name: Rebuild postal data from Japan Post
         run: |
@@ -38,16 +37,24 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit, tag, and publish patch release
+      - name: Commit data, bump patch version, push tag
         if: steps.diff.outputs.changed == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        id: version
         run: |
           git config user.name "nihonpost-bot"
           git config user.email "actions@github.com"
           # Commit the data first: npm version refuses to run on a dirty tree
           git commit -m "data: monthly Japan Post refresh"
           npm version patch -m "chore: release %s"
-          npm run build
-          npm publish
           git push --follow-tags
+          echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Tag pushes made with GITHUB_TOKEN don't trigger other workflows
+      # (recursion guard), so dispatch the Release workflow explicitly.
+      # All npm publishing lives in release.yml — the single workflow
+      # registered as the package's trusted publisher.
+      - name: Trigger release
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref "${{ steps.version.outputs.tag }}"

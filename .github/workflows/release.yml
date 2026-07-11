@@ -1,16 +1,25 @@
 name: Release
 
-# Publish to npm with provenance whenever a v* tag is pushed.
-# Provenance ("Built and signed" badge) only works from a supported CI
-# runner with an OIDC token — hence id-token: write and CI-only publishing.
+# Publishes to npm with provenance ("Built and signed" badge).
+# Triggered by pushing a v* tag, or dispatched on a tag ref by the
+# monthly data-update workflow.
+#
+# Publishing auth:
+#  - First release (package doesn't exist on npm yet): uses NPM_TOKEN.
+#  - After that: configure Trusted Publishing on npmjs.com
+#    (package Settings → Trusted Publisher → GitHub Actions,
+#    repo Thiya11/nihonpost, workflow release.yml), then delete the
+#    NPM_TOKEN secret and the NODE_AUTH_TOKEN line below — publishing
+#    becomes tokenless via OIDC, provenance stays automatic.
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
+  id-token: write # OIDC for trusted publishing + provenance
 
 jobs:
   publish:
@@ -18,16 +27,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 24 ships npm >= 11.5.1, required for trusted publishing.
+      # registry-url is required even though it's the default: it makes
+      # setup-node write the .npmrc that npm's auth relies on.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: Verify tag matches package.json version
+      - name: Verify we are on a tag matching package.json version
         run: |
           pkg="v$(node -p "require('./package.json').version")"
           if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match package version $pkg" >&2
+            echo "Ref $GITHUB_REF_NAME does not match package version $pkg" >&2
+            echo "(dispatch this workflow on the release tag, not a branch)" >&2
             exit 1
           fi
 
@@ -36,7 +49,8 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      # --provenance/access come from publishConfig in package.json
+      # provenance/access come from publishConfig in package.json
       - run: npm publish
         env:
+          # Delete this line once trusted publishing is configured
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
