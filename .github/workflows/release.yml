@@ -14,12 +14,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          # NO registry-url here — it poisons .npmrc for OIDC
-      - run: npm install -g npm@latest   # guarantee >= 11.5.1
-      # ... your version-check / npm ci / typecheck / test / build steps ...
-      - run: npm publish --provenance --access public
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify we are on a tag matching package.json version
+        run: |
+          pkg="v$(node -p "require('./package.json').version")"
+          if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
+            echo "Ref $GITHUB_REF_NAME does not match package version $pkg" >&2
+            exit 1
+          fi
+
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npm publish   # tokenless; provenance/access from publishConfig
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
