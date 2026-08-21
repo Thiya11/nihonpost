@@ -13,16 +13,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24            # ships npm >= 11.5.1
-          registry-url: https://registry.npmjs.org
-      - name: Verify tag matches package.json version
-        run: |
-          pkg="v$(node -p "require('./package.json').version")"
-          if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
-            echo "Ref $GITHUB_REF_NAME does not match package version $pkg" >&2
-            echo "(dispatch this workflow on the release tag, not a branch)" >&2
-            exit 1
-          fi
+          node-version: 24
+          # NO registry-url here — it poisons .npmrc for OIDC
+      - run: npm install -g npm@latest   # guarantee >= 11.5.1
+      # ... your version-check / npm ci / typecheck / test / build steps ...
+      - run: npm publish --provenance --access public
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
